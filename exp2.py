@@ -1,46 +1,70 @@
-import numpy as np
+import argparse
+
 import cv2
 import matplotlib.pyplot as plt
-image =cv2.imread(r"E:\sem 7\CV LAB\dog.jpg",cv2.IMREAD_GRAYSCALE)
-plt.imshow(image,cmap='gray')
-  
-cv2.imshow('image',image)
+import numpy as np
 
-def add_salt_pepper_noise(image,probability=0.3):
-    noisy=image.copy()
-    
-    random=np.random.rand(*image.shape)
-    noisy[random<probability/2]=0
-    noisy[random>1-probability/2]=255
-    return noisy
+image_path = r"E:\sem 7\CV LAB\dog.jpg"
+image = cv2.imread(image_path)
+def add_salt_pepper_noise(image, probability=0.04):
+    """Add salt (white) and pepper (black) noise to a grayscale image."""
+    noisy_image = image.copy()
+    random_values = np.random.rand(*image.shape)
 
-# prob=0.2
-# noisy_image=ass_salt_pepper_noise(image,prob)
-# plt.imshow(noisy_image,cmap='gray')
-# plt.show()
-noisy_image = add_salt_pepper_noise(image, probability=0.2)
+    noisy_image[random_values < probability / 2] = 0
+    noisy_image[random_values > 1 - probability / 2] = 255
+    return noisy_image
 
-# Remove noise using Median Filter (Moving Window)
-filtered_image = cv2.medianBlur(noisy_image, 3)
 
-# Display images
-plt.figure(figsize=(12,4))
+def median_filter(image, window_size=3):
+    """Remove noise using a manual moving-window median filter."""
+    if window_size < 1 or window_size % 2 == 0:
+        raise ValueError("window_size must be a positive odd number.")
 
-plt.subplot(1,3,1)
-plt.imshow(image, cmap='gray')
-plt.title("Original Image")
-plt.axis('off')
+    padding = window_size // 2
+    padded_image = cv2.copyMakeBorder(
+        image, padding, padding, padding, padding, cv2.BORDER_REFLECT
+    )
+    filtered_image = np.zeros_like(image)
 
-plt.subplot(1,3,2)
-plt.imshow(noisy_image, cmap='gray')
-plt.title("Salt & Pepper Noise")
-plt.axis('off')
+    height, width = image.shape
+    for row in range(height):
+        for column in range(width):
+            window = padded_image[row : row + window_size, column : column + window_size]
+            filtered_image[row, column] = np.median(window)
 
-plt.subplot(1,3,3)
-plt.imshow(filtered_image, cmap='gray')
-plt.title("Median Filter Output")
-plt.axis('off')
+    return filtered_image
 
-plt.tight_layout()
-plt.show()
 
+def main(image_path, probability):
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        raise FileNotFoundError(f"Could not read image: {image_path}")
+
+    noisy_image = add_salt_pepper_noise(image, probability)
+    denoised_image = median_filter(noisy_image, window_size=3)
+
+    plt.figure(figsize=(15, 4))
+    for position, (title, display_image) in enumerate(
+        [
+            ("Original Image", image),
+            (f"Noisy Image (p={probability})", noisy_image),
+            ("Denoised Image", denoised_image),
+        ],
+        start=1,
+    ):
+        plt.subplot(1, 3, position)
+        plt.imshow(display_image, cmap="gray")
+        plt.title(title)
+        plt.axis("off")
+
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Salt-and-pepper noise removal.")
+    parser.add_argument("image", nargs="?", default="dog.jpg", help="Path to input image")
+    parser.add_argument("--probability", type=float, default=0.04, help="Noise probability")
+    arguments = parser.parse_args()
+    main(arguments.image, arguments.probability)
